@@ -32,19 +32,13 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // Backend expects OAuth2PasswordRequestForm format (form-data with username=email)
       const formData = new FormData();
       formData.append('username', email);
       formData.append('password', password);
 
-      // Don't set Content-Type header - axios will set it automatically with boundary
       const response = await api.post('/auth/login', formData);
-
-      // Store token
       const token = response.data.access_token;
       localStorage.setItem('token', token);
-
-      // Navigate to dashboard
       navigate('/dashboard');
     } catch (err: any) {
       setError(
@@ -64,42 +58,68 @@ export default function Login() {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-            className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg"
+            className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-2xl text-white shadow-lg"
+            style={{ background: 'var(--gradient-primary)' }}
           >
-            <LogIn className="w-8 h-8 text-white" />
+            <LogIn className="w-8 h-8" />
           </motion.div>
-          <h2 className="text-3xl font-bold text-gray-800">Welcome Back</h2>
-          <p className="text-gray-600 mt-2">Sign in to continue your journey</p>
+          <h2 className="text-3xl font-bold" style={{ color: 'var(--heading)' }}>
+            Welcome Back
+          </h2>
+          <p className="mt-2" style={{ color: 'var(--text)' }}>
+            Sign in to continue your journey
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text)' }}
+            >
               Email
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Mail
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5"
+                style={{ color: 'var(--text)' }}
+              />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm"
+                className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all"
+                style={{
+                  borderColor: 'var(--border)',
+                  backgroundColor: 'rgba(255,255,255,0.8)',
+                  focusRing: 'var(--primary)',
+                }}
                 placeholder="your@email.com"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text)' }}
+            >
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Lock
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5"
+                style={{ color: 'var(--text)' }}
+              />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm"
+                className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all"
+                style={{
+                  borderColor: 'var(--border)',
+                  backgroundColor: 'rgba(255,255,255,0.8)',
+                }}
                 placeholder="••••••••"
               />
             </div>
@@ -109,7 +129,12 @@ export default function Login() {
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm"
+              className="p-3 border rounded-xl text-sm"
+              style={{
+                backgroundColor: '#FEE2E2',
+                borderColor: '#FCA5A5',
+                color: '#DC2626',
+              }}
             >
               {error}
             </motion.div>
@@ -120,7 +145,8 @@ export default function Login() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+            className="w-full py-3 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+            style={{ background: 'var(--gradient-primary)' }}
           >
             {loading ? (
               <span className="flex items-center justify-center">
@@ -148,11 +174,12 @@ export default function Login() {
           </motion.button>
         </form>
 
-        <div className="text-center text-sm text-gray-600">
+        <div className="text-center text-sm" style={{ color: 'var(--text)' }}>
           Don't have an account?{' '}
           <Link
             to="/signup"
-            className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+            className="font-semibold transition-colors hover:opacity-80"
+            style={{ color: 'var(--primary)' }}
           >
             Sign up
           </Link>

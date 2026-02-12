@@ -6,6 +6,8 @@ import SkillAnalysis from './pages/SkillAnalysis';
 import Interview from './pages/Interview';
 import ProgrammingInterview from './pages/ProgrammingInterview';
 import HRInterview from './pages/HRInterview';
+import InterviewChat from './pages/InterviewChat';
+import { DataManagement } from './pages/DataManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -52,6 +54,22 @@ function App() {
           element={
             <ProtectedRoute>
               <HRInterview />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/interview/chat"
+          element={
+            <ProtectedRoute>
+              <InterviewChat />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/data-management"
+          element={
+            <ProtectedRoute>
+              <DataManagement />
             </ProtectedRoute>
           }
         />

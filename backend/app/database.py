@@ -20,7 +20,7 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 # Import models after `Base` is defined so they register correctly
-from app.models import user, resume, analysis, interview  # noqa: E402
+from app.models import user, resume, analysis, interview, chat_history, job_description  # noqa: E402
 
 # Create tables
 Base.metadata.create_all(bind=engine)

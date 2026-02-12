@@ -42,3 +42,41 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Resume and Job Description APIs
+export const uploadsApi = {
+  // Resume endpoints
+  uploadResume: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post("/resume/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+  },
+  
+  getResumeHistory: () => api.get("/resume/history"),
+  
+  getResume: (resumeId: number) => api.get(`/resume/${resumeId}`),
+  
+  deleteResume: (resumeId: number) => api.delete(`/resume/${resumeId}`),
+  
+  // Job Description endpoints
+  uploadJobDescription: (file: File, title: string) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("title", title);
+    return api.post("/resume/job-description/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+  },
+  
+  saveJobDescriptionText: (title: string, content: string) => 
+    api.post("/resume/job-description/text", { title, content }),
+  
+  getJobDescriptionHistory: () => api.get("/resume/job-description/history"),
+  
+  getJobDescription: (jdId: number) => api.get(`/resume/job-description/${jdId}`),
+  
+  deleteJobDescription: (jdId: number) => api.delete(`/resume/job-description/${jdId}`)
+};
+

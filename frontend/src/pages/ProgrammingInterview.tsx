@@ -1,30 +1,49 @@
-import { useState } from "react";
-import { api } from "../services/api";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Clock, MessageSquare } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
+import { InterviewChatService, Session } from "../services/interview-chat-service";
 
 export default function ProgrammingInterview() {
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [jobDescription, setJobDescription] = useState("Software Engineer - Full Stack Developer");
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
+
+  useEffect(() => {
+    loadSessions();
+  }, []);
+
+  const loadSessions = async () => {
+    try {
+      setLoadingSessions(true);
+      const allSessions = await InterviewChatService.getSessions();
+      // Filter only programming sessions
+      const programmingSessions = allSessions.filter(s => s.mode === 'programming');
+      setSessions(programmingSessions);
+    } catch (err) {
+      console.error('Failed to load sessions:', err);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
 
   const startInterview = async () => {
-    if (!jobDescription.trim()) {
-      setError("Please enter a job description");
-      return;
-    }
-
     setLoading(true);
     setError("");
     
     try {
-      const res = await api.post('/programming-interview/start', {
-        job_description: jobDescription,
-        mode: "programming",
-        level: "basic"
-      });
-      setQuestion(res.data);
+      const result = await InterviewChatService.startSession(
+        "Programming Interview Practice",
+        "programming",
+        "",
+        "Programming Interview"
+      );
+      
+      // Navigate to unified chat interface
+      navigate(`/interview/chat?session=${result.session_id}`);
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || "Failed to start interview");
     } finally {
@@ -32,117 +51,161 @@ export default function ProgrammingInterview() {
     }
   };
 
-  const submitAnswer = async () => {
-    if (!answer.trim()) {
-      setError("Please provide an answer");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const res = await api.post('/programming-interview/answer', {
-        job_description: jobDescription,
-        previous_question: question,
-        answer: answer,
-        mode: "programming",
-        level: "basic"
-      });
-      setQuestion(res.data);
-      setAnswer("");
-    } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || "Failed to submit answer");
-    } finally {
-      setLoading(false);
-    }
+  const resumeSession = (sessionId: number) => {
+    navigate(`/interview/chat?session=${sessionId}`);
   };
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <h1 className="text-4xl font-bold text-gray-800 mb-2">
-          Programming Interview
-        </h1>
-        <p className="text-gray-600">
-          Practice your programming skills with our AI interviewer
-        </p>
+      <div className="max-w-2xl mx-auto pt-8 pb-16 px-4">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--heading)' }}>
+            Programming Interview
+          </h1>
+          <p style={{ color: 'var(--text)' }}>
+            Practice data structures, algorithms, and coding problems
+          </p>
+        </motion.div>
 
-        {!question ? (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Job Description
-              </label>
-              <textarea
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                placeholder="Enter the job description or role you're applying for..."
-                className="w-full h-32 p-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              />
+        {/* Form Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl p-8 border"
+          style={{
+            backgroundColor: 'var(--card-bg)',
+            borderColor: 'var(--border)',
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          <div className="space-y-6">
+            {/* Info Section */}
+            <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--page-bg)' }}>
+              <h3 className="font-semibold mb-2" style={{ color: 'var(--heading)' }}>
+                How it works:
+              </h3>
+              <ul style={{ color: 'var(--text)' }} className="text-sm space-y-1 list-disc list-inside">
+                <li>AI will ask programming and DSA questions</li>
+                <li>Answer each question and get follow-up questions</li>
+                <li>Explain your approach and discuss trade-offs</li>
+                <li>All conversations are saved to your profile</li>
+              </ul>
             </div>
-            
+
+            {/* Error Message */}
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm">
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 border rounded-xl text-sm"
+                style={{
+                  backgroundColor: '#FEE2E2',
+                  borderColor: '#FCA5A5',
+                  color: '#DC2626',
+                }}
+              >
                 {error}
-              </div>
+              </motion.div>
             )}
 
-            <button
+            {/* Start Button */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={startInterview}
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ backgroundColor: 'var(--primary)' }}
             >
-              {loading ? "Starting..." : "Start Interview"}
-            </button>
+              {loading ? "Starting Interview..." : "Start Interview"}
+            </motion.button>
           </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">Question</h2>
-              <div className="bg-gray-50 rounded-xl p-4 whitespace-pre-wrap text-gray-800 font-mono text-sm">
-                {question}
-              </div>
-            </div>
+        </motion.div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Your Answer
-              </label>
-              <textarea
-                placeholder="Type your answer here..."
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                className="w-full h-48 p-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-sm"
-              />
-            </div>
+        {/* Tips Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mt-8 p-6 rounded-2xl border"
+          style={{
+            backgroundColor: 'var(--card-bg)',
+            borderColor: 'var(--border)',
+          }}
+        >
+          <h3 className="font-semibold mb-4" style={{ color: 'var(--heading)' }}>
+            💡 Tips for Success
+          </h3>
+          <ul style={{ color: 'var(--text)' }} className="text-sm space-y-2">
+            <li>✓ Think out loud - explain your approach</li>
+            <li>✓ Ask clarifying questions about requirements</li>
+            <li>✓ Discuss trade-offs and complexity analysis</li>
+            <li>✓ Code solutions step by step</li>
+            <li>✓ Test edge cases and handle errors</li>
+          </ul>
+        </motion.div>
 
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm">
-                {error}
-              </div>
-            )}
-
-            <div className="flex gap-4">
-              <button
-                onClick={submitAnswer}
-                disabled={loading || !answer.trim()}
-                className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? "Submitting..." : "Submit Answer"}
-              </button>
-              <button
-                onClick={() => {
-                  setQuestion("");
-                  setAnswer("");
-                  setError("");
-                }}
-                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all"
-              >
-                Restart
-              </button>
+        {/* Previous Chats Section */}
+        {sessions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-8"
+          >
+            <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--heading)' }}>
+              Previous Interviews
+            </h2>
+            <div className="grid gap-3">
+              {sessions.map((session) => (
+                <motion.div
+                  key={session.id}
+                  whileHover={{ scale: 1.02 }}
+                  onClick={() => resumeSession(session.id)}
+                  className="p-4 border rounded-xl cursor-pointer transition-all hover:shadow-lg"
+                  style={{
+                    backgroundColor: 'var(--card-bg)',
+                    borderColor: 'var(--border)',
+                  }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-semibold" style={{ color: 'var(--heading)' }}>
+                        {session.title}
+                      </h4>
+                      <div className="flex items-center gap-4 mt-2 text-xs" style={{ color: 'var(--text)' }}>
+                        <div className="flex items-center gap-1">
+                          <MessageSquare className="w-4 h-4" />
+                          <span>{session.message_count} messages</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          <span>{new Date(session.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-white ml-4"
+                      style={{ backgroundColor: 'var(--primary)' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        resumeSession(session.id);
+                      }}
+                    >
+                      Open
+                    </motion.button>
+                  </div>
+                </motion.div>
+              ))}
             </div>
-          </div>
+          </motion.div>
         )}
       </div>
     </DashboardLayout>

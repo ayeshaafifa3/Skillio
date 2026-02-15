@@ -3,14 +3,15 @@ from app.utils.ai.interview_engine import (
     evaluate_and_followup
 )
 
-def start_programming_interview(resume_text: str, jd_text: str) -> str:
+def start_programming_interview(resume_text: str, jd_text: str, level: str = "beginner") -> str:
     """
     Starts a new programming interview.
     Returns ONLY plain text (first question).
     """
     return generate_interview_question(
         resume_text=resume_text,
-        jd_text=jd_text
+        jd_text=jd_text,
+        level=level
     )
 
 
@@ -18,7 +19,8 @@ def continue_programming_interview(
     previous_question: str,
     candidate_answer: str,
     resume_text: str,
-    jd_text: str
+    jd_text: str,
+    level: str = "beginner"
 ) -> str:
     """
     Evaluates the answer and returns the next follow-up question.
@@ -28,7 +30,8 @@ def continue_programming_interview(
         previous_question=previous_question,
         candidate_answer=candidate_answer,
         resume_text=resume_text,
-        jd_text=jd_text
+        jd_text=jd_text,
+        level=level
     )
 
 
@@ -36,7 +39,7 @@ def generate_question(
     resume_text: str,
     jd_text: str,
     mode: str = "programming",
-    level: str = "basic",
+    level: str = "beginner",
     previous_question: str | None = None,
     user_answer: str | None = None,
 ) -> str:
@@ -50,11 +53,13 @@ def generate_question(
             previous_question=previous_question,
             candidate_answer=user_answer,
             resume_text=resume_text,
-            jd_text=jd_text
+            jd_text=jd_text,
+            level=level
         )
     else:
         # Initial question
         return start_programming_interview(
             resume_text=resume_text,
-            jd_text=jd_text
+            jd_text=jd_text,
+            level=level
         )

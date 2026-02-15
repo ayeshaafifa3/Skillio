@@ -10,6 +10,7 @@ export interface Message {
 export interface Session {
   id: number;
   mode: string;
+  difficulty: string;
   title: string;
   created_at: string;
   updated_at: string;
@@ -19,6 +20,7 @@ export interface Session {
 export interface SessionDetail {
   session_id: number;
   mode: string;
+  difficulty: string;
   title: string;
   job_description: string;
   resume_text: string;
@@ -48,7 +50,8 @@ export class InterviewChatService {
     jobDescription: string,
     mode: 'programming' | 'hr' = 'programming',
     resumeText: string = '',
-    title: string = 'New Interview'
+    title: string = 'New Interview',
+    difficulty: string = 'beginner'
   ) {
     try {
       const response = await api.post('/interview/session/start', {
@@ -56,6 +59,7 @@ export class InterviewChatService {
         mode: mode,
         resume_text: resumeText,
         title: title,
+        difficulty: difficulty,
       });
       return response.data;
     } catch (error) {
@@ -105,6 +109,19 @@ export class InterviewChatService {
       return response.data;
     } catch (error) {
       console.error('Failed to send message:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete an interview session
+   */
+  static async deleteSession(sessionId: number): Promise<{ message: string }> {
+    try {
+      const response = await api.delete(`/interview/session/${sessionId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to delete session:', error);
       throw error;
     }
   }

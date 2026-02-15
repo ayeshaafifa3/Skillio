@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Clock, MessageSquare } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Clock, MessageSquare, Trash2 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
 import { InterviewChatService, Session } from "../services/interview-chat-service";
+
+type Difficulty = "beginner" | "intermediate" | "advanced";
 
 export default function ProgrammingInterview() {
   const navigate = useNavigate();
@@ -11,6 +13,9 @@ export default function ProgrammingInterview() {
   const [error, setError] = useState("");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>("beginner");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   useEffect(() => {
     loadSessions();
@@ -39,7 +44,8 @@ export default function ProgrammingInterview() {
         "Programming Interview Practice",
         "programming",
         "",
-        "Programming Interview"
+        "Programming Interview",
+        selectedDifficulty
       );
       
       // Navigate to unified chat interface
@@ -53,6 +59,54 @@ export default function ProgrammingInterview() {
 
   const resumeSession = (sessionId: number) => {
     navigate(`/interview/chat?session=${sessionId}`);
+  };
+
+  const handleDeleteClick = (sessionId: number) => {
+    setConfirmDeleteId(sessionId);
+  };
+
+  const confirmDelete = async (sessionId: number) => {
+    setDeletingId(sessionId);
+    try {
+      await InterviewChatService.deleteSession(sessionId);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      setConfirmDeleteId(null);
+    } catch (err: any) {
+      console.error('Failed to delete session:', err);
+      setError('Failed to delete session. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setConfirmDeleteId(null);
+  };
+
+  const getDifficultyColor = (level: Difficulty) => {
+    switch (level) {
+      case "beginner":
+        return "var(--primary)";
+      case "intermediate":
+        return "#EAB308";
+      case "advanced":
+        return "#EF4444";
+      default:
+        return "var(--primary)";
+    }
+  };
+
+  const getDifficultyDescription = (level: Difficulty) => {
+    switch (level) {
+      case "beginner":
+        return "Basic arrays, loops, simple logic problems";
+      case "intermediate":
+        return "Data structures, algorithms, edge case handling";
+      case "advanced":
+        return "Optimization, complexity analysis, tricky problems";
+      default:
+        return "";
+    }
   };
 
   return (
@@ -95,6 +149,34 @@ export default function ProgrammingInterview() {
                 <li>Explain your approach and discuss trade-offs</li>
                 <li>All conversations are saved to your profile</li>
               </ul>
+            </div>
+
+            {/* Difficulty Selector */}
+            <div className="space-y-3">
+              <label style={{ color: 'var(--heading)' }} className="block font-semibold text-sm">
+                Select Difficulty Level
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {(['beginner', 'intermediate', 'advanced'] as const).map((level) => (
+                  <motion.button
+                    key={level}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setSelectedDifficulty(level)}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      selectedDifficulty === level ? 'border-current' : 'border-transparent'
+                    }`}
+                    style={{
+                      backgroundColor: 'var(--page-bg)',
+                      color: selectedDifficulty === level ? getDifficultyColor(level) : 'var(--text)',
+                      borderColor: selectedDifficulty === level ? getDifficultyColor(level) : 'var(--border)',
+                    }}
+                  >
+                    <div className="font-semibold capitalize text-sm mb-1">{level}</div>
+                    <div className="text-xs opacity-70">{getDifficultyDescription(level)}</div>
+                  </motion.button>
+                ))}
+              </div>
             </div>
 
             {/* Error Message */}
@@ -180,6 +262,11 @@ export default function ProgrammingInterview() {
                       </h4>
                       <div className="flex items-center gap-4 mt-2 text-xs" style={{ color: 'var(--text)' }}>
                         <div className="flex items-center gap-1">
+                          <span className="px-2 py-1 rounded capitalize" style={{ backgroundColor: 'var(--page-bg)' }}>
+                            {session.difficulty}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
                           <MessageSquare className="w-4 h-4" />
                           <span>{session.message_count} messages</span>
                         </div>
@@ -192,7 +279,7 @@ export default function ProgrammingInterview() {
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="px-4 py-2 rounded-lg text-sm font-medium text-white ml-4"
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-white ml-2"
                       style={{ backgroundColor: 'var(--primary)' }}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -201,12 +288,82 @@ export default function ProgrammingInterview() {
                     >
                       Open
                     </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-white ml-2"
+                      style={{ backgroundColor: '#EF4444' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClick(session.id);
+                      }}
+                      disabled={deletingId === session.id}
+                    >
+                      {deletingId === session.id ? 'Deleting...' : 'Delete'}
+                    </motion.button>
                   </div>
                 </motion.div>
               ))}
             </div>
           </motion.div>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AnimatePresence>
+          {confirmDeleteId !== null && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+              onClick={cancelDelete}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-sm mx-4 border"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  backgroundColor: 'var(--card-bg)',
+                  borderColor: 'var(--border)',
+                }}
+              >
+                <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--heading)' }}>
+                  Delete Interview Session?
+                </h3>
+                <p className="mb-8" style={{ color: 'var(--text)' }}>
+                  Are you sure you want to delete this interview session? This action cannot be undone.
+                </p>
+                <div className="flex gap-4 justify-end">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={cancelDelete}
+                    className="px-6 py-2 rounded-lg font-medium transition-all"
+                    style={{
+                      backgroundColor: 'var(--page-bg)',
+                      color: 'var(--text)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    Cancel
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => confirmDelete(confirmDeleteId)}
+                    disabled={deletingId !== null}
+                    className="px-6 py-2 rounded-lg font-medium text-white disabled:opacity-50"
+                    style={{ backgroundColor: '#EF4444' }}
+                  >
+                    {deletingId === confirmDeleteId ? 'Deleting...' : 'Delete'}
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </DashboardLayout>
   );

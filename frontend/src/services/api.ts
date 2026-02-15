@@ -80,3 +80,16 @@ export const uploadsApi = {
   deleteJobDescription: (jdId: number) => api.delete(`/resume/job-description/${jdId}`)
 };
 
+// ATS Score Analysis
+export const getATSScore = async (jobDescription: string) => {
+  return api.post("/analysis/ats-score", null, {
+    params: { job_description: jobDescription }
+  });
+};
+
+export const getResumeImprovements = async (jobDescription: string) => {
+  return api.post("/analysis/resume-improvement", null, {
+    params: { job_description: jobDescription }
+  });
+};
+

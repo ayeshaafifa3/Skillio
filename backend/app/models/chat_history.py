@@ -15,6 +15,7 @@ class InterviewSession(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     
     mode = Column(String(50), default="programming")  # "programming" or "hr"
+    difficulty = Column(String(20), default="beginner")  # "beginner", "intermediate", "advanced"
     job_description = Column(Text, nullable=False)
     resume_text = Column(Text, default="")
     

@@ -29,6 +29,7 @@ class MessageResponse(BaseModel):
 class SessionResponse(BaseModel):
     id: int
     mode: str
+    difficulty: str
     title: str
     created_at: datetime
     updated_at: datetime
@@ -41,6 +42,7 @@ class SessionResponse(BaseModel):
 class ChatStartRequest(BaseModel):
     job_description: str
     mode: str = "programming"  # "programming" or "hr"
+    difficulty: str = "beginner"  # "beginner", "intermediate", "advanced"
     resume_text: str = ""
     title: str = "New Interview"
 
@@ -74,7 +76,7 @@ def get_interview_response(
     previous_messages: list,
     db: Session
 ) -> str:
-    """Generate AI response based on session mode and message history."""
+    """Generate AI response based on session mode, difficulty and message history."""
     
     # Get last user message (most recent)
     user_message = previous_messages[-1].content if previous_messages else ""
@@ -89,7 +91,7 @@ def get_interview_response(
     if session.mode.lower() == "hr":
         response = generate_hr_question(
             job_description=session.job_description,
-            level="basic",
+            level=session.difficulty,
             previous_question=last_ai_question,
             user_answer=user_message,
             resume_text=session.resume_text
@@ -97,7 +99,7 @@ def get_interview_response(
     else:
         response = generate_question(
             job_description=session.job_description,
-            level="basic",
+            level=session.difficulty,
             previous_question=last_ai_question,
             user_answer=user_message
         )
@@ -127,6 +129,7 @@ def start_chat_session(
         session = InterviewSession(
             user_id=user_id,
             mode=request.mode,
+            difficulty=request.difficulty,
             job_description=request.job_description,
             resume_text=request.resume_text,
             title=request.title
@@ -139,13 +142,13 @@ def start_chat_session(
         if request.mode.lower() == "hr":
             question = generate_hr_question(
                 job_description=request.job_description,
-                level="basic",
+                level=request.difficulty,
                 resume_text=request.resume_text
             )
         else:
             question = generate_question(
                 job_description=request.job_description,
-                level="basic"
+                level=request.difficulty
             )
         
         # Save opening question to DB
@@ -160,7 +163,8 @@ def start_chat_session(
         return {
             "session_id": session.id,
             "opening_question": question,
-            "mode": request.mode
+            "mode": request.mode,
+            "difficulty": request.difficulty
         }
     
     except Exception as e:
@@ -201,6 +205,7 @@ def get_latest_session(
         return {
             "session_id": session.id,
             "mode": session.mode,
+            "difficulty": session.difficulty,
             "title": session.title,
             "job_description": session.job_description,
             "resume_text": session.resume_text,
@@ -349,6 +354,46 @@ def send_message(
             "created_at": ai_msg.created_at
         }
     
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/session/{session_id}", response_model=dict)
+def delete_session(
+    session_id: int,
+    email: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete an interview session and all its messages.
+    
+    Verifies session belongs to logged-in user before deleting.
+    """
+    try:
+        user_id = get_user_id(email, db)
+        
+        # Verify session belongs to user
+        session = db.query(InterviewSession).filter(
+            InterviewSession.id == session_id,
+            InterviewSession.user_id == user_id
+        ).first()
+        
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Delete all messages first
+        db.query(InterviewMessage).filter(
+            InterviewMessage.session_id == session_id
+        ).delete()
+        
+        # Delete session
+        db.delete(session)
+        db.commit()
+        
+        return {"message": "Session deleted successfully"}
+    
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))

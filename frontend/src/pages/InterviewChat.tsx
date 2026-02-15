@@ -144,7 +144,9 @@ const InterviewChat: React.FC = () => {
   };
 
   const getModeBadge = () => {
-    return sessionDetail?.mode === 'hr' ? 'HR Interview' : 'Programming Interview';
+    const mode = sessionDetail?.mode === 'hr' ? 'HR Interview' : 'Programming Interview';
+    const difficulty = sessionDetail?.difficulty ? ` (${sessionDetail.difficulty.charAt(0).toUpperCase() + sessionDetail.difficulty.slice(1)})` : '';
+    return mode + difficulty;
   };
 
   // Loading state

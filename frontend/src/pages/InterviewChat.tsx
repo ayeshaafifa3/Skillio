@@ -1,9 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, MessageSquare } from 'lucide-react';
+import { ChevronLeft, MessageSquare, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
+import InterviewerAvatar from '../components/InterviewerAvatar';
+import VoiceWaveform from '../components/VoiceWaveform';
+import ConfidenceMeter from '../components/ConfidenceMeter';
 import { InterviewChatService, Message, SessionDetail } from '../services/interview-chat-service';
+
+const SpeechRecognition =
+  (typeof window !== 'undefined' && ((window as any).SpeechRecognition ||
+  (window as any).webkitSpeechRecognition)) || null;
 
 const InterviewChat: React.FC = () => {
   const navigate = useNavigate();
@@ -18,7 +25,24 @@ const InterviewChat: React.FC = () => {
   const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [error, setError] = useState('');
   
+  // Audio state
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [isListening, setIsListening] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState('');
+  const [voiceNotSupported, setVoiceNotSupported] = useState(false);
+  
+  // New: AI speaking state
+  const [aiSpeaking, setAiSpeaking] = useState(false);
+
+  // New: Confidence scoring
+  const [confidenceScore, setConfidenceScore] = useState(0);
+  const [showConfidence, setShowConfidence] = useState(false);
+  const [speakingDuration, setSpeakingDuration] = useState(0);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const lastAIMessageRef = useRef<string>('');
+  const speakingStartRef = useRef<number>(0);
   const STORAGE_KEY = 'interview_session_id';
 
   // Initialize session on component mount
@@ -30,6 +54,151 @@ const InterviewChat: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (!SpeechRecognition) {
+      setVoiceNotSupported(true);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
+      setInterimTranscript('');
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      let final = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          final += transcript + ' ';
+        } else {
+          interim += transcript;
+        }
+      }
+
+      if (final) {
+        setInput((prev) => prev + final);
+        setInterimTranscript('');
+      } else {
+        setInterimTranscript(interim);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      setInterimTranscript('');
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Cleanup speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  // Auto-speak AI messages
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const lastMessage = messages[messages.length - 1];
+    
+    if (lastMessage.role === 'ai' && 
+        lastMessage.content && 
+        lastMessage.content !== lastAIMessageRef.current &&
+        voiceEnabled) {
+      lastAIMessageRef.current = lastMessage.content;
+      speak(lastMessage.content);
+    }
+  }, [messages, voiceEnabled]);
+
+  const speak = (text: string) => {
+    if (!voiceEnabled || typeof window === 'undefined') return;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 1;
+    utterance.pitch = 1;
+
+    utterance.onstart = () => setAiSpeaking(true);
+    utterance.onend = () => setAiSpeaking(false);
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const startListening = () => {
+    if (!recognitionRef.current) {
+      setVoiceNotSupported(true);
+      return;
+    }
+    speakingStartRef.current = Date.now();
+    recognitionRef.current.start();
+  };
+
+  const stopListening = () => {
+    if (!recognitionRef.current) return;
+    const duration = Date.now() - speakingStartRef.current;
+    setSpeakingDuration(duration);
+    recognitionRef.current.stop();
+    setIsListening(false);
+  };
+
+  const cancelSpeech = () => {
+    if (typeof window !== 'undefined') {
+      window.speechSynthesis.cancel();
+      setAiSpeaking(false);
+    }
+  };
+
+  // Calculate confidence score based on speech characteristics
+  const calculateConfidenceScore = (transcript: string): number => {
+    let score = 50; // Base score
+
+    // Factor 1: Length (words spoken)
+    const wordCount = transcript.trim().split(/\s+/).length;
+    if (wordCount > 20) score += 20;
+    else if (wordCount > 10) score += 10;
+    else if (wordCount < 3) score -= 15;
+
+    // Factor 2: Speaking duration (ms)
+    const durationSeconds = speakingDuration / 1000;
+    if (durationSeconds > 15) score += 15;
+    else if (durationSeconds > 8) score += 10;
+    else if (durationSeconds < 2) score -= 10;
+
+    // Factor 3: Speech quality (punctuation, capitalization as proxy)
+    if (transcript.includes('.') || transcript.includes('?') || transcript.includes('!')) {
+      score += 10;
+    }
+
+    // Factor 4: Avoid going over 100 or below 0
+    return Math.min(100, Math.max(0, score));
+  };
 
   const initializeSession = async () => {
     try {
@@ -97,6 +266,12 @@ const InterviewChat: React.FC = () => {
     if (!input.trim() || isLoading || !sessionId) return;
 
     const userMessage = input;
+    
+    // Calculate confidence score before clearing input
+    const confidence = calculateConfidenceScore(userMessage);
+    setConfidenceScore(confidence);
+    setShowConfidence(true);
+
     setInput('');
 
     // Add user message to UI immediately
@@ -117,6 +292,9 @@ const InterviewChat: React.FC = () => {
         userMessage
       );
       setMessages((prev) => [...prev, aiResponse]);
+      
+      // Hide confidence meter after showing briefly
+      setTimeout(() => setShowConfidence(false), 2000);
     } catch (err: any) {
       setError('Failed to get response. Please try again.');
       setMessages((prev) => prev.slice(0, -1)); // Remove the user message if AI fails
@@ -259,19 +437,39 @@ const InterviewChat: React.FC = () => {
             </div>
           </div>
           
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => startNewInterview(sessionDetail?.mode === 'hr' ? 'hr' : 'programming')}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
-            style={{
-              backgroundColor: 'var(--page-bg)',
-              color: 'var(--text)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            New Interview
-          </motion.button>
+          <div className="flex items-center gap-3">
+            {/* Voice Status */}
+            <motion.div
+              className="flex items-center gap-1 px-3 py-2 rounded-lg"
+              style={{
+                backgroundColor: 'var(--page-bg)',
+              }}
+              title={voiceEnabled ? 'Voice Output Enabled' : 'Voice Output Disabled'}
+            >
+              {voiceEnabled ? (
+                <Volume2 className="w-4 h-4" style={{ color: 'var(--primary)' }} />
+              ) : (
+                <VolumeX className="w-4 h-4" style={{ color: '#9CA3AF' }} />
+              )}
+              <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>
+                {voiceEnabled ? 'Voice On' : 'Voice Off'}
+              </span>
+            </motion.div>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => startNewInterview(sessionDetail?.mode === 'hr' ? 'hr' : 'programming')}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{
+                backgroundColor: 'var(--page-bg)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              New Interview
+            </motion.button>
+          </div>
         </div>
 
         {/* Messages Area */}
@@ -279,6 +477,17 @@ const InterviewChat: React.FC = () => {
           className="flex-1 overflow-y-auto p-6 space-y-4"
           style={{ backgroundColor: 'var(--page-bg)' }}
         >
+          {/* Avatar Section */}
+          <div className="pt-4">
+            <InterviewerAvatar speaking={aiSpeaking} listening={isListening} />
+          </div>
+
+          {/* Voice Waveform */}
+          {(isListening || aiSpeaking) && <VoiceWaveform isActive={isListening || aiSpeaking} isSpeaking={aiSpeaking} />}
+
+          {/* Confidence Meter */}
+          <ConfidenceMeter score={confidenceScore} isVisible={showConfidence} />
+
           <AnimatePresence>
             {messages.map((msg, idx) => (
               <motion.div
@@ -385,12 +594,46 @@ const InterviewChat: React.FC = () => {
             backgroundColor: 'var(--card-bg)',
           }}
         >
+          {/* Voice Input Transcript Display */}
+          {interimTranscript && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-3 p-3 rounded-lg"
+              style={{
+                backgroundColor: 'var(--page-bg)',
+              }}
+            >
+              <p style={{ color: 'var(--text)' }} className="text-sm flex items-center gap-2">
+                <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.6, repeat: Infinity }}>
+                  🎤
+                </motion.span>
+                Listening: {interimTranscript}
+              </p>
+            </motion.div>
+          )}
+
+          {/* Voice Not Supported Warning */}
+          {voiceNotSupported && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-3 p-3 rounded-lg text-sm"
+              style={{
+                backgroundColor: '#FEF3C7',
+                color: '#92400E',
+              }}
+            >
+              ⚠️ Voice input is not supported in your browser. Please use text input or try a different browser.
+            </motion.div>
+          )}
+
           <div className="max-w-4xl mx-auto flex gap-3">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Your answer... (Shift+Enter for new line)"
+              placeholder="Your answer... (Shift+Enter for new line, or use the microphone)"
               className="flex-1 p-4 rounded-lg resize-none focus:outline-none focus:ring-2"
               style={{
                 backgroundColor: 'var(--page-bg)',
@@ -399,20 +642,76 @@ const InterviewChat: React.FC = () => {
                 '--tw-ring-color': 'var(--primary)',
               } as any}
               rows={3}
-              disabled={isLoading}
+              disabled={isLoading || isListening}
             />
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={sendMessage}
-              disabled={isLoading || !input.trim()}
-              className="px-6 h-fit self-end rounded-lg font-medium text-white disabled:opacity-50 transition-opacity"
-              style={{
-                backgroundColor: 'var(--primary)',
-              }}
-            >
-              Send
-            </motion.button>
+            
+            <div className="flex flex-col gap-2 h-fit self-end">
+              {/* Microphone Button */}
+              {!voiceNotSupported && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={isListening ? stopListening : startListening}
+                  disabled={isLoading}
+                  className={`px-4 py-2 rounded-lg font-medium text-white transition-all flex items-center gap-2 ${
+                    isListening ? 'animate-pulse' : ''
+                  }`}
+                  style={{
+                    backgroundColor: isListening ? '#EF4444' : '#10B981',
+                    opacity: isLoading ? 0.5 : 1,
+                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                  }}
+                  title={isListening ? 'Stop Listening' : 'Start Listening'}
+                >
+                  {isListening ? (
+                    <>
+                      <MicOff className="w-4 h-4" />
+                      <span className="text-sm">Stop</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-4 h-4" />
+                      <span className="text-sm">Mic</span>
+                    </>
+                  )}
+                </motion.button>
+              )}
+
+              {/* Voice Toggle Button */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  setVoiceEnabled(!voiceEnabled);
+                  cancelSpeech();
+                }}
+                className="px-4 py-2 rounded-lg font-medium text-white transition-all flex items-center justify-center"
+                style={{
+                  backgroundColor: voiceEnabled ? 'var(--primary)' : '#9CA3AF',
+                }}
+                title={voiceEnabled ? 'Voice On' : 'Voice Off'}
+              >
+                {voiceEnabled ? (
+                  <Volume2 className="w-4 h-4" />
+                ) : (
+                  <VolumeX className="w-4 h-4" />
+                )}
+              </motion.button>
+
+              {/* Send Button */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={sendMessage}
+                disabled={isLoading || !input.trim()}
+                className="px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50 transition-opacity"
+                style={{
+                  backgroundColor: 'var(--primary)',
+                }}
+              >
+                Send
+              </motion.button>
+            </div>
           </div>
         </div>
       </div>

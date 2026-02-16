@@ -7,6 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 60000, // 60 second timeout for all requests (development)
   // Don't set default Content-Type - let axios set it automatically based on data type
   // For JSON: application/json
   // For FormData: multipart/form-data with boundary

@@ -11,12 +11,15 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   // Redirect if already logged in
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       navigate('/dashboard');
+    } else {
+      setCheckingAuth(false);
     }
   }, [navigate]);
 
@@ -49,6 +52,18 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  if (checkingAuth) {
+    return (
+      <AuthLayout>
+        <div className="flex items-center justify-center py-12">
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity }}>
+            <div className="w-8 h-8 border-3 rounded-full" style={{ borderColor: 'var(--primary)', borderTopColor: 'transparent' }} />
+          </motion.div>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout>

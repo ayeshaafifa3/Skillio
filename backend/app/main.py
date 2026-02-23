@@ -16,7 +16,7 @@ from app.routes import interview_api
 
 
 
-app = FastAPI(title="HireMate AI")
+app = FastAPI(title="Skillio")
 
 # Create tables on startup
 @app.on_event("startup")
@@ -45,7 +45,7 @@ app.add_middleware(
 # -----------------------------
 @app.get("/")
 def root():
-    return "HireMate backend running"
+    return "Skillio backend running"
 
 # -----------------------------
 # ROUTERS

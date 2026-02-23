@@ -5,6 +5,9 @@ from pydantic import BaseModel
 
 from app.database import SessionLocal, engine, Base
 from app.models.user import User
+from app.models.analysis import AnalysisHistory
+from app.models.interview import InterviewHistory
+from app.models.resume import Resume
 from app.utils.security import (
     hash_password,
     verify_password,
@@ -88,4 +91,36 @@ def get_me(
         "id": user.id,
         "name": user.name,
         "email": user.email,
+    }
+
+@router.get("/dashboard/stats", tags=["Auth"])
+def get_dashboard_stats(
+    email: str = Security(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get dashboard statistics for the current user"""
+    user = db.query(User).filter(User.email == email).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Count skills analyzed
+    skills_analyzed = db.query(AnalysisHistory).filter(
+        AnalysisHistory.user_id == user.id
+    ).count()
+
+    # Count interviews taken
+    interviews_taken = db.query(InterviewHistory).filter(
+        InterviewHistory.user_id == user.id
+    ).count()
+
+    # Count resumes scanned
+    resumes_scanned = db.query(Resume).filter(
+        Resume.user_id == user.id
+    ).count()
+
+    return {
+        "skills_analyzed": skills_analyzed,
+        "interviews_taken": interviews_taken,
+        "resumes_scanned": resumes_scanned,
     }
